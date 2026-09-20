@@ -1,4 +1,4 @@
-app = "live-video-avisafe"
+app = "live-video-app"
 primary_region = "ams"
 
 [build]
