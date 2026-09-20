@@ -42,7 +42,7 @@
   ###############################################
   webrtc: yes
   webrtcAddress: :8889
-  webrtcEncryption: "no"
+  webrtcEncryption: no
   webrtcAllowOrigin: ${WEBRTC_ALLOW_ORIGIN}
   webrtcLocalUDPAddress: ""
   webrtcLocalTCPAddress: :8189
