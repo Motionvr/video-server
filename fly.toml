@@ -1,5 +1,10 @@
+# fly.toml app configuration file generated for video-server-app on 2026-09-20T13:20:36Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
 app = "video-server-app"
-primary_region = "ams"
+primary_region = 'ams'
 
 [build]
   dockerfile = "Dockerfile"
@@ -9,6 +14,7 @@ primary_region = "ams"
   MTX_WEBRTCADDITIONALHOSTS = ""
 
 # WebRTC / WHEP (HTTPS)
+
 [[services]]
   internal_port = 8889
   protocol = "tcp"
@@ -31,6 +37,7 @@ primary_region = "ams"
     soft_limit = 150
 
 # RTMPS inn fra Pilot 2 / FlightHub 2 (Fly terminerer TLS)
+
 [[services]]
   internal_port = 1935
   protocol = "tcp"
@@ -47,6 +54,7 @@ primary_region = "ams"
     handlers = []
 
 # WebRTC over TCP (ICE) – nødvendig bak Fly sin proxy
+
 [[services]]
   internal_port = 8189
   protocol = "tcp"
@@ -59,6 +67,13 @@ primary_region = "ams"
     handlers = []
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = 'shared-cpu-1x'
+  memory = '512mb'
   cpus = 1
+
+[http_service]
+  auto_start_machines = true
+  auto_stop_machines = 'stop'
+  force_https = true
+  internal_port = 8189
+  min_machines_running = 0
