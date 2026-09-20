@@ -35,14 +35,14 @@
   ###############################################
   rtmp: yes
   rtmpAddress: :1935
-  rtmpEncryption: no
+  rtmpEncryption: "no"
 
   ###############################################
   # WebRTC / WHEP ut
   ###############################################
   webrtc: yes
   webrtcAddress: :8889
-  webrtcEncryption: no
+  webrtcEncryption: "no"
   webrtcAllowOrigin: ${WEBRTC_ALLOW_ORIGIN}
   webrtcLocalUDPAddress: ""
   webrtcLocalTCPAddress: :8189
