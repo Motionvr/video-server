@@ -1,4 +1,4 @@
-app = "live-video-app"
+app = "live-server-app"
 primary_region = "ams"
 
 [build]
