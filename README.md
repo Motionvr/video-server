@@ -82,7 +82,13 @@ Følg loggen mens du starter strømmen: `fly logs -a video-server-app`.
 - **Ingenting i loggen når DJI/Larix kobler til:** tilkoblingen når ikke
   fram. Sjekk `fly status` (kjører maskinen?) og `fly ips list` (egen IPv4?).
   Test fra PC: `nc -vz video-server-app.fly.dev 1935`.
-- **RTMPS (1936) virker, RTMP (1935) ikke:** appen mangler egen IPv4.
+- **RTMPS (1936) virker, RTMP (1935) ikke:** `video-server-app.fly.dev` peker
+  til en delt IPv4. TLS på 1936 rutes på servernavnet og virker der, ren TCP
+  på 1935 gjør det ikke. Sjekk `dig +short video-server-app.fly.dev` mot
+  `fly ips list`. Har appen egen IPv4, slipp den delte
+  (`fly ips release <delt-ip> -a video-server-app`), eller allokér en egen
+  IPv4 hvis den mangler. Rask test: bruk IP-adressen direkte,
+  `rtmp://<egen-ipv4>:1935/live/<strømnøkkel>`.
 - **«authentication failed» / «Not authorized» ved publisering:** strømnøkkelen
   er ukjent, sperret eller fornyet. Lag ny adresse i AviSafe
   (drone → Live video → Oppsett).
