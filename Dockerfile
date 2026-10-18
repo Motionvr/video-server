@@ -2,7 +2,9 @@ FROM alpine:3.22 AS certificates
 
 RUN apk add --no-cache ca-certificates
 
-FROM bluenviron/mediamtx:latest
+# Låst versjon: «latest» kan endre konfignavn/oppførsel ved neste deploy uten
+# at noe er endret her (samme versjon som Atlas-serveren i live_video).
+FROM bluenviron/mediamtx:1.19.2
 
 # MediaMTX-imaget er minimalt og kan mangle systemets CA-pakke. Uten denne
 # kan HTTP-auth mot Supabase feile med "certificate signed by unknown authority".

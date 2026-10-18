@@ -4,9 +4,9 @@ primary_region = "ams"
 [build]
   dockerfile = "Dockerfile"
 
-[env]
-  # Settes til riktige verdier ved deploy (se README)
-  MTX_WEBRTCADDITIONALHOSTS = ""
+# MTX_WEBRTCADDITIONALHOSTS (appens offentlige IPv4) settes som secret, ikke her:
+# en tom verdi får MediaMTX til å avslutte ved oppstart («at least one between
+# 'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled»). Se README.
 
 # WebRTC / WHEP (HTTPS)
 [[services]]
