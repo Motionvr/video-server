@@ -19,7 +19,8 @@ cd video-server
 fly launch --no-deploy --name live-video-avisafe --region ams   # kun første gang
 fly secrets set \
   MTX_AUTHHTTPADDRESS="https://<prosjekt>.supabase.co/functions/v1/live-video-auth" \
-  MTX_WEBRTCALLOWORIGIN="https://app.avisafe.no"
+  MTX_WEBRTCALLOWORIGINS="https://app.avisafe.no,https://mil.avisafe.no" \
+  LIVE_VIDEO_EVENT_SECRET="<samme som LIVE_VIDEO_EVENT_SECRET i Supabase>"
 fly deploy
 ```
 
@@ -37,6 +38,17 @@ videoen kommer aldri – ICE finner ingen brukbar kandidat.
 MediaMTX leser alle innstillinger i `mediamtx.yml` som kan overstyres av
 miljøvariabler med prefiks `MTX_`. Secrets over er derfor nok; `${...}`-verdiene
 i yml-filen er kun dokumentasjon av hvilke variabler som brukes.
+
+`MTX_WEBRTCALLOWORIGINS` (flertall, kommaseparert) overstyrer `webrtcAllowOrigins`
+(standard `*`; avspilling er uansett beskyttet av kortlevd token). Enkeltallsnavnet
+`MTX_WEBRTCALLOWORIGIN` finnes ikke og blir ignorert.
+
+## Aktiv/inaktiv-status
+
+`runOnReady` / `runOnNotReady` i `mediamtx.yml` kjører `hooks/live-event.sh`, som
+kaller edge-funksjonen `live-video-event` slik at `drone_live_streams.active`
+oppdateres med en gang strømmen starter/stopper. Uten `LIVE_VIDEO_EVENT_SECRET`
+gjør skriptet ingenting. Hooken kan ikke stoppe eller forsinke videoen.
 
 ## Porter
 
@@ -61,4 +73,5 @@ det inn en relay-/edge-løsning foran.
   eller peker på feil IP.
 - **Pilot 2 nekter `rtmps://`:** bruk `rtmp://<host>:1935/live/<nøkkel>` som
   reserve. Da er strømmen ukryptert på veien – kun for test.
-- Logger: `fly logs -a live-video-avisafe`.
+- Logger: `fly logs -a live-video-avisafe`. NB: MediaMTX logger hele stien, og
+  stien inneholder strømnøkkelen. Ikke del loggutdrag uten å maskere den.

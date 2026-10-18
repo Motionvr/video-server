@@ -30,6 +30,8 @@ writeQueueSize: 512
 # Autentisering – hver publisering og avspilling spør AviSafe
 ###############################################
 authMethod: http
+# Kan også peke på eget domene (https://api.avisafe.no/functions/v1/live-video-auth)
+# via MTX_AUTHHTTPADDRESS.
 authHTTPAddress: https://pmucsvrypogtttrajqxq.supabase.co/functions/v1/live-video-auth
 
 ###############################################
@@ -60,6 +62,10 @@ pathDefaults:
   source: publisher
   record: no
   sourceOnDemand: no
+  # Markerer strømmen aktiv/inaktiv i AviSafe (live-video-event). Krever
+  # secret LIVE_VIDEO_EVENT_SECRET (samme verdi som i Supabase). Fire-and-forget.
+  runOnReady: /usr/local/bin/live-event.sh publish
+  runOnNotReady: /usr/local/bin/live-event.sh unpublish
 
 paths:
   all_others:
