@@ -57,6 +57,19 @@ overstyres med miljøvariabler/secrets med prefiks `MTX_`
 MediaMTX-versjonen er låst i `Dockerfile`. Oppgrader bevisst og les
 endringsloggen – konfignavn har endret seg mellom versjoner.
 
+`webrtcAllowOrigins` er `*` som standard. Kan overstyres med
+`MTX_WEBRTCALLOWORIGINS` (flertall, kommaseparert). Avspilling er uansett
+beskyttet av kortlevd token.
+
+## Aktiv/inaktiv-status
+
+`runOnReady` / `runOnNotReady` i `mediamtx.yml` kjører `hooks/live-event.sh`, som
+kaller edge-funksjonen `live-video-event` slik at `drone_live_streams.active`
+oppdateres med en gang strømmen starter/stopper. Krever Fly-secret
+`LIVE_VIDEO_EVENT_SECRET` (samme verdi som i Supabase). Uten den gjør skriptet
+ingenting. Hooken kan ikke stoppe eller forsinke videoen. Imaget bruker alpine
+(med `curl`) i stedet for det minimale MediaMTX-imaget fordi hooken trenger et skall.
+
 ## Porter
 
 | Port utad | Internt | Bruk                                              |
@@ -78,6 +91,8 @@ legge inn `[http_service]` med `auto_stop_machines` og `min_machines_running = 0
 ## Feilsøking
 
 Følg loggen mens du starter strømmen: `fly logs -a video-server-app`.
+NB: MediaMTX logger hele stien, og stien inneholder strømnøkkelen. Ikke del
+loggutdrag uten å maskere den.
 
 - **Ingenting i loggen når DJI/Larix kobler til:** tilkoblingen når ikke
   fram. Sjekk `fly status` (kjører maskinen?) og `fly ips list` (egen IPv4?).

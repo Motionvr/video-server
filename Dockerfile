@@ -1,19 +1,21 @@
-FROM alpine:3.22 AS certificates
+# MediaMTX binary source.
+# Versjonen er pinnet slik at nye utgivelser ikke endrer oppførsel uventet.
+# Oppgrader bevisst og test publisering + avspilling etterpå.
+FROM bluenviron/mediamtx:1.19.2 AS mediamtx
 
-RUN apk add --no-cache ca-certificates
+# Liten runtime med CA-pakke (HTTP-auth mot Supabase) og curl (hooks som
+# melder fra til live-video-event når en strøm starter/stopper). Det offisielle
+# MediaMTX-imaget har verken skall eller curl.
+FROM alpine:3.22
 
-# Låst versjon: «latest» kan endre konfignavn/oppførsel ved neste deploy uten
-# at noe er endret her (samme versjon som Atlas-serveren i live_video).
-FROM bluenviron/mediamtx:1.19.2
+RUN apk add --no-cache ca-certificates curl \
+    && update-ca-certificates
 
-# MediaMTX-imaget er minimalt og kan mangle systemets CA-pakke. Uten denne
-# kan HTTP-auth mot Supabase feile med "certificate signed by unknown authority".
-COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-
-# MediaMTX gjør ingen omkoding: H.264 fra RTMP kopieres rått til WebRTC.
+COPY --from=mediamtx /mediamtx /mediamtx
+COPY hooks/live-event.sh /usr/local/bin/live-event.sh
 COPY mediamtx.yml /mediamtx.yml
 
+# MediaMTX gjør ingen omkoding: H.264 fra RTMP kopieres rått til WebRTC.
 EXPOSE 1935/tcp 8889/tcp 8189/tcp
 
 ENTRYPOINT ["/mediamtx", "/mediamtx.yml"]
