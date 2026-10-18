@@ -1,63 +1,83 @@
 # AviSafe live video (MediaMTX på Fly.io)
 
-Tar imot RTMP(S)-videostrøm fra DJI Pilot 2 og FlightHub 2 og leverer den
-videre til AviSafe i nettleseren via WebRTC (WHEP). Ingen omkoding, ingen
-opptak – kun live.
+Fly-app: **`video-server-app`** (`video-server-app.fly.dev`). Dette repoet er
+den eneste kilden til konfigurasjonen.
+
+Tar imot RTMP-videostrøm fra DJI-apper (Pilot 2, FlightHub 2, Fly, GO 4) og
+andre kilder (OBS, Larix …) og leverer den videre til AviSafe i nettleseren
+via WebRTC (WHEP). Ingen omkoding, ingen opptak – kun live.
 
 Denne appen er helt uavhengig av `mqtt-broker-avisafe`.
 
 ```
-Pilot 2 / FlightHub 2 --RTMPS 1936--> MediaMTX --WebRTC/WHEP 443--> AviSafe
-                                          |
-                                          +--HTTP auth--> live-video-auth (Supabase)
+DJI-apper      --RTMP  1935--------------------> MediaMTX --WebRTC/WHEP 443--> AviSafe
+OBS / Larix    --RTMPS 1936 (Fly terminerer TLS)-->   |
+                                                      +--HTTP auth--> live-video-auth (Supabase)
 ```
+
+DJI-appene godtar **bare `rtmp://`**, så port 1935 er hovedveien. Adressen
+som AviSafe viser under drone → Live video → Oppsett er
+`rtmp://video-server-app.fly.dev:1935/live/<strømnøkkel>`.
 
 ## Deploy
 
 ```bash
-cd video-server
-fly launch --no-deploy --name live-video-avisafe --region ams   # kun første gang
-fly secrets set \
-  MTX_AUTHHTTPADDRESS="https://<prosjekt>.supabase.co/functions/v1/live-video-auth" \
-  MTX_WEBRTCALLOWORIGINS="https://app.avisafe.no,https://mil.avisafe.no" \
-  LIVE_VIDEO_EVENT_SECRET="<samme som LIVE_VIDEO_EVENT_SECRET i Supabase>"
-fly deploy
+fly deploy -a video-server-app
 ```
 
-Etter første deploy:
+Første gang (ny app):
 
 ```bash
-fly ips list          # noter den offentlige IPv4-adressen
-fly secrets set MTX_WEBRTCADDITIONALHOSTS="<offentlig-ip>"
-fly deploy
+fly launch --no-deploy --name video-server-app --region ams
+fly ips allocate-v4 -a video-server-app     # se «Egen IPv4» under
+fly ips list -a video-server-app            # noter IPv4-adressen
+fly secrets set -a video-server-app MTX_WEBRTCADDITIONALHOSTS="<IPv4>"
+fly deploy -a video-server-app
 ```
 
-**Viktig:** uten `MTX_WEBRTCADDITIONALHOSTS` fullføres signaleringen, men
-videoen kommer aldri – ICE finner ingen brukbar kandidat.
+### Egen IPv4 (påkrevd)
 
-MediaMTX leser alle innstillinger i `mediamtx.yml` som kan overstyres av
-miljøvariabler med prefiks `MTX_`. Secrets over er derfor nok; `${...}`-verdiene
-i yml-filen er kun dokumentasjon av hvilke variabler som brukes.
+Port 1935 (RTMP) og 8189 (WebRTC-media) er ren TCP (`handlers = []`). Fly
+ruter ren TCP **kun via en dedikert IPv4** – med bare delt IPv4 når
+tilkoblingene aldri fram, og det står ingenting i loggen. Sjekk med
+`fly ips list`: står det bare `shared v4`, kjør `fly ips allocate-v4`.
 
-`MTX_WEBRTCALLOWORIGINS` (flertall, kommaseparert) overstyrer `webrtcAllowOrigins`
-(standard `*`; avspilling er uansett beskyttet av kortlevd token). Enkeltallsnavnet
-`MTX_WEBRTCALLOWORIGIN` finnes ikke og blir ignorert.
+`MTX_WEBRTCADDITIONALHOSTS` **må** være satt som secret. Mangler den (eller er
+den tom), avslutter MediaMTX ved oppstart med «at least one between
+'webrtcIPsFromInterfaces' or 'webrtcAdditionalHosts' must be filled», og da
+svarer verken RTMP, RTMPS eller nettleseren. Byttes IPv4-adressen, må secreten
+oppdateres til den nye.
+
+## Konfigurasjon
+
+MediaMTX utvider ikke `${...}` i `mediamtx.yml`. Alle innstillinger kan
+overstyres med miljøvariabler/secrets med prefiks `MTX_`
+(f.eks. `MTX_WEBRTCADDITIONALHOSTS`).
+
+MediaMTX-versjonen er låst i `Dockerfile`. Oppgrader bevisst og les
+endringsloggen – konfignavn har endret seg mellom versjoner.
+
+`webrtcAllowOrigins` er `*` som standard. Kan overstyres med
+`MTX_WEBRTCALLOWORIGINS` (flertall, kommaseparert). Avspilling er uansett
+beskyttet av kortlevd token.
 
 ## Aktiv/inaktiv-status
 
 `runOnReady` / `runOnNotReady` i `mediamtx.yml` kjører `hooks/live-event.sh`, som
 kaller edge-funksjonen `live-video-event` slik at `drone_live_streams.active`
-oppdateres med en gang strømmen starter/stopper. Uten `LIVE_VIDEO_EVENT_SECRET`
-gjør skriptet ingenting. Hooken kan ikke stoppe eller forsinke videoen.
+oppdateres med en gang strømmen starter/stopper. Krever Fly-secret
+`LIVE_VIDEO_EVENT_SECRET` (samme verdi som i Supabase). Uten den gjør skriptet
+ingenting. Hooken kan ikke stoppe eller forsinke videoen. Imaget bruker alpine
+(med `curl`) i stedet for det minimale MediaMTX-imaget fordi hooken trenger et skall.
 
 ## Porter
 
-| Port utad | Internt | Bruk                                   |
-| --------- | ------- | -------------------------------------- |
-| 443 / 80  | 8889    | WebRTC-signalering (WHEP) til nettleser |
-| 1936      | 1935    | RTMPS inn fra Pilot 2 / FH2            |
-| 1935      | 1935    | RTMP uten TLS (reserve, mindre sikkert)|
-| 8189      | 8189    | WebRTC-media over TCP                  |
+| Port utad | Internt | Bruk                                              |
+| --------- | ------- | ------------------------------------------------- |
+| 443 / 80  | 8889    | WebRTC-signalering (WHEP) til nettleser           |
+| 1935      | 1935    | RTMP inn – DJI Pilot 2 / FH2 / Fly / GO 4 (krever egen IPv4) |
+| 1936      | 1935    | RTMPS inn (Fly terminerer TLS) – OBS, Larix o.l.  |
+| 8189      | 8189    | WebRTC-media over TCP (krever egen IPv4)          |
 
 ## Én maskin
 
@@ -65,13 +85,37 @@ gjør skriptet ingenting. Hooken kan ikke stoppe eller forsinke videoen.
 publiserer og den som ser på må treffe samme instans. Skal dette skaleres må
 det inn en relay-/edge-løsning foran.
 
+Ikke merge Fly-dashboardets automatiske «scale»-PR-er uten å lese dem: de kan
+legge inn `[http_service]` med `auto_stop_machines` og `min_machines_running = 0`.
+
 ## Feilsøking
 
-- **«Not authorized» ved publisering:** strømnøkkelen er ukjent eller sperret.
-  Hent ny adresse i AviSafe (drone → Live video → Oppsett).
+Følg loggen mens du starter strømmen: `fly logs -a video-server-app`.
+NB: MediaMTX logger hele stien, og stien inneholder strømnøkkelen. Ikke del
+loggutdrag uten å maskere den.
+
+- **Ingenting i loggen når DJI/Larix kobler til:** tilkoblingen når ikke
+  fram. Sjekk `fly status` (kjører maskinen?) og `fly ips list` (egen IPv4?).
+  Test fra PC: `nc -vz video-server-app.fly.dev 1935`.
+- **RTMPS (1936) virker, RTMP (1935) ikke:** `video-server-app.fly.dev` peker
+  til en delt IPv4. TLS på 1936 rutes på servernavnet og virker der, ren TCP
+  på 1935 gjør det ikke. Sjekk `dig +short video-server-app.fly.dev` mot
+  `fly ips list`. Har appen egen IPv4, slipp den delte
+  (`fly ips release <delt-ip> -a video-server-app`), eller allokér en egen
+  IPv4 hvis den mangler. Rask test: bruk IP-adressen direkte,
+  `rtmp://<egen-ipv4>:1935/live/<strømnøkkel>`.
+- **«authentication failed» / «Not authorized» ved publisering:** strømnøkkelen
+  er ukjent, sperret eller fornyet. Lag ny adresse i AviSafe
+  (drone → Live video → Oppsett).
 - **Avspilling henger på «kobler til»:** `MTX_WEBRTCADDITIONALHOSTS` mangler
   eller peker på feil IP.
-- **Pilot 2 nekter `rtmps://`:** bruk `rtmp://<host>:1935/live/<nøkkel>` som
-  reserve. Da er strømmen ukryptert på veien – kun for test.
-- Logger: `fly logs -a live-video-avisafe`. NB: MediaMTX logger hele stien, og
-  stien inneholder strømnøkkelen. Ikke del loggutdrag uten å maskere den.
+- **Maskinen starter ikke / feil ved oppstart:** les starten av
+  `fly logs --no-tail`; ukjente konfignavn stopper MediaMTX.
+
+Testsending uten drone (ffmpeg):
+
+```bash
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 -f lavfi -i sine \
+  -c:v libx264 -preset veryfast -g 60 -c:a aac \
+  -f flv "rtmp://video-server-app.fly.dev:1935/live/<strømnøkkel>"
+```

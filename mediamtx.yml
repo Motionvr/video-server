@@ -21,6 +21,7 @@ playback: no
 hls: no
 rtsp: no
 srt: no
+moq: no
 
 readTimeout: 20s
 writeTimeout: 20s
