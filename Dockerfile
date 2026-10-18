@@ -13,6 +13,7 @@ RUN apk add --no-cache ca-certificates curl \
 
 COPY --from=mediamtx /mediamtx /mediamtx
 COPY hooks/live-event.sh /usr/local/bin/live-event.sh
+RUN chmod +x /usr/local/bin/live-event.sh
 COPY mediamtx.yml /mediamtx.yml
 
 # MediaMTX gjør ingen omkoding: H.264 fra RTMP kopieres rått til WebRTC.
